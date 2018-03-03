@@ -41,9 +41,6 @@ class BCModel(object):
             train_x:
             train_y:
         """
-        train_idxs = np.arange(train_x.shape[0])
-        np.random.shuffle(train_idxs)
-
         input_x = tf.placeholder(tf.float32, [None, train_x.shape[1]])
         expected_y = tf.placeholder(tf.float32, [None, train_y.shape[1]])
         
@@ -58,11 +55,8 @@ class BCModel(object):
         self._sess.run(tf.global_variables_initializer())
 
         for i in range(n_epoch):
-            for j in range(train_x.shape[0] // batch_size):
-                start_idx = j * batch_size % train_x.shape[0]
-                idx = train_idxs[start_idx : start_idx + batch_size]
+            for idx in self._shuffle_samples(train_x.shape[0], batch_size):
                 feed_dict = {input_x : train_x[idx, :], expected_y : train_y[idx, :]}
-
                 _, loss_val = self._sess.run([train_op, loss], feed_dict=feed_dict)
 
             print("Epoch %d loss = %r" % (i + 1, loss_val))
@@ -93,7 +87,7 @@ class BCModel(object):
             hidden_layer = self._add_layer(i, hidden_layer, n_nodes)
             # add activation function at each node
             hidden_layer = tf.nn.relu(hidden_layer)
-            
+
         # generate output layer
         output_layer = self._add_layer(len(self._hidden_layers), hidden_layer, y_dimension)
 
@@ -115,3 +109,21 @@ class BCModel(object):
         xTw_plus_b = tf.matmul(layer_in, weights) + biases
 
         return xTw_plus_b
+
+
+    def _shuffle_samples(self, n_samples, batch_size):
+        shuffle_set = []
+
+        dataset_idxs = np.arange(n_samples)
+        np.random.shuffle(dataset_idxs)
+
+        for i in range(n_samples // batch_size):
+            start_idx = i * batch_size
+            idx = dataset_idxs[start_idx : start_idx + batch_size]
+            shuffle_set.append(idx)
+
+        if n_samples % batch_size:
+            idx = dataset_idxs[n_samples - (n_samples % batch_size) : ]
+            shuffle_set.append(idx)
+
+        return shuffle_set
