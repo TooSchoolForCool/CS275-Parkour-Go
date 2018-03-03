@@ -22,7 +22,11 @@ class BCModel(object):
         self._learning_rate = learning_rate
         
         # tensorflow session
-        self._sess = None
+        self._tf_sess = None
+        # tensorflow x input placeholder
+        self._tf_x_in = None
+        # tensorflow y output operator
+        self._tf_y_out = None
 
 
     def __del__(self):
@@ -30,20 +34,24 @@ class BCModel(object):
 
         Free TensorFlow session
         """
-        if self._sess:
-            self._sess.close()
+        if self._tf_sess:
+            self._tf_sess.close()
 
 
     def train(self, train_x, train_y, n_epoch=20, batch_size=100):
         """Training Model
 
         Args:
-            train_x:
-            train_y:
+            train_x: [np.ndarray] A list of training sample x (observation),
+                each x is a vector stored in the format of nd.ndarray
+            train_y: [np.ndarray] A list of actions according to each
+                sample x. Each action a vector stored in the format 
+                of nd.ndarray
         """
         input_x = tf.placeholder(tf.float32, [None, train_x.shape[1]])
         expected_y = tf.placeholder(tf.float32, [None, train_y.shape[1]])
         
+        # build inference graph (network topology)
         y_out = self._inference(input_x, train_x.shape[1], train_y.shape[1])
 
         loss = tf.reduce_mean(tf.square(y_out - expected_y))
@@ -51,27 +59,35 @@ class BCModel(object):
         train_op = optimizer.minimize(loss)
 
         # initialize the variables
-        self._sess = tf.Session()
-        self._sess.run(tf.global_variables_initializer())
+        sess = tf.Session()
+        sess.run(tf.global_variables_initializer())
 
         for i in range(n_epoch):
             for idx in self._shuffle_samples(train_x.shape[0], batch_size):
                 feed_dict = {input_x : train_x[idx, :], expected_y : train_y[idx, :]}
-                _, loss_val = self._sess.run([train_op, loss], feed_dict=feed_dict)
+                _, loss_val = sess.run([train_op, loss], feed_dict=feed_dict)
 
             print("Epoch %d loss = %r" % (i + 1, loss_val))
 
+        # save metadata
+        self._tf_sess = sess
+        self._tf_x_in = input_x
+        self._tf_y_out = y_out
 
-    def predict(self, predict_x):
+
+    def predict(self, observation):
         """Prediction Process
         
         Args:
-            predict_x
+            observation: A single observation
 
         Returns:
-            predict_y
+            predicted_action: Predicted action output
         """
-        pass
+        predicted_action = self._tf_sess.run(self._tf_y_out, 
+            feed_dict={self._tf_x_in : observation})
+
+        return predicted_action
 
 
     def _inference(self, layer_in, x_dimension, y_dimension):

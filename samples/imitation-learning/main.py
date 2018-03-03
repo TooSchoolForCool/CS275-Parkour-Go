@@ -1,3 +1,4 @@
+import gym
 import pickle
 import numpy as np
 
@@ -32,6 +33,12 @@ def arg_parser():
         help = "Enable OpenAI Graphic Rendering or not",
         action='store_true'
     )
+    parser.add_argument("--rollout",
+        dest = "rollout",
+        help = "Number of times of roll out",
+        type = int,
+        default = 1
+    )
 
     return parser.parse_args()
 
@@ -60,14 +67,41 @@ def get_training_data(data_path):
     return train_x, train_y
 
 
+def start_env(args, bc_model):
+    env = gym.make(args.env)
+
+    rewards = []
+
+    for i in range(args.rollout):
+        observation = env.reset()
+        done = False
+        total_rewards = 0.0
+
+        while not done:
+            observation = np.array([observation])
+            action = bc_model.predict(observation)
+
+            observation, reward, done, _ = env.step(action)
+            total_rewards += reward
+
+            if args.render:
+                env.render()
+
+        rewards.append(total_rewards)
+
+    print("totol rewards: %r" % rewards)
+    print("mean of totol reward: %r" % np.mean(rewards))
+    print("std of total reward %r" % np.std(rewards))
+
+
 def main():
     args = arg_parser()
 
     train_x, train_y = get_training_data(args.expert)
+    bc_model = BCModel(hidden_layers=[100, 100, 100, 40], learning_rate=5e-4)
+    bc_model.train(train_x, train_y, n_epoch=50, batch_size=500)
 
-    bc_model = BCModel(hidden_layers=[40, 40, 20], learning_rate=5e-4)
-
-    bc_model.train(train_x, train_y)
+    start_env(args, bc_model)
 
 
 if __name__ == '__main__':
