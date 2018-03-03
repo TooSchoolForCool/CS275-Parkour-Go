@@ -65,7 +65,7 @@ def main():
 
     train_x, train_y = get_training_data(args.expert)
 
-    bc_model = BCModel(n_hidden_layers=3, n_hidden_nodes=20, learning_rate=5e-4)
+    bc_model = BCModel(hidden_layers=[40, 40, 20], learning_rate=5e-4)
 
     bc_model.train(train_x, train_y)
 

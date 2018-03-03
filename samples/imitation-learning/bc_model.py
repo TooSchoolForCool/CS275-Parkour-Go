@@ -9,17 +9,16 @@ class BCModel(object):
     behavioral cloning by utilizing TensorFlow Neural Network.
     """
 
-    def __init__(self, n_hidden_layers=5, n_hidden_nodes=40, learning_rate=0.01):
+    def __init__(self, hidden_layers, learning_rate=0.01):
         """Constructor
 
         Args:
-            n_hidden_layers: [integer] number of hidden layers
-            n_hidden_nodes: [integer] number of nodes at each hidden layers
+            hidden_layers: A list of integers which indicates the nubmer
+                of nodes at each hidden layer.
             learning_rate: [float] learning rate of the learning model, e.g., 
                 step size for gradient descent
         """
-        self._n_hidden_layers = n_hidden_layers
-        self._n_hidden_nodes = n_hidden_nodes
+        self._hidden_layers = hidden_layers
         self._learning_rate = learning_rate
         
         # tensorflow session
@@ -35,7 +34,7 @@ class BCModel(object):
             self._sess.close()
 
 
-    def train(self, train_x, train_y, n_epoch=50, batch_size=500):
+    def train(self, train_x, train_y, n_epoch=20, batch_size=100):
         """Training Model
 
         Args:
@@ -86,21 +85,26 @@ class BCModel(object):
 
         Building nueral network topology
         """
-        assert(self._n_hidden_layers > 0 and self._n_hidden_nodes > 0)
+        assert(len(self._hidden_layers) > 0)
 
-        hidden_layer = self._add_layer(layer_in, x_dimension, self._n_hidden_nodes)
-
-        for i in range(self._n_hidden_layers - 1):
-            hidden_layer = self._add_layer(hidden_layer, self._n_hidden_nodes, self._n_hidden_nodes)
-
-        output_layer = self._add_layer(hidden_layer, self._n_hidden_nodes, y_dimension)
+        # generate hidden layer
+        hidden_layer = layer_in
+        for i, n_nodes in enumerate(self._hidden_layers):
+            hidden_layer = self._add_layer(i, hidden_layer, n_nodes)
+            # add activation function at each node
+            hidden_layer = tf.nn.relu(hidden_layer)
+            
+        # generate output layer
+        output_layer = self._add_layer(len(self._hidden_layers), hidden_layer, y_dimension)
 
         return output_layer
 
 
-    def _add_layer(self, layer_in, input_dimension, n_hidden_nodes):
+    def _add_layer(self, layer_cnt, layer_in, n_hidden_nodes):
         """Add layer
         """
+        input_dimension = int(layer_in.shape[1])
+
         weights = tf.Variable(
             tf.truncated_normal(shape=(input_dimension, n_hidden_nodes),
                 stddev=1.0 / math.sqrt(float(input_dimension)))
@@ -110,7 +114,4 @@ class BCModel(object):
         # for each node run: x^T \cdot weight + bias
         xTw_plus_b = tf.matmul(layer_in, weights) + biases
 
-        # Add activation function at each node
-        layer_out = tf.nn.relu(xTw_plus_b)
-
-        return layer_out
+        return xTw_plus_b
