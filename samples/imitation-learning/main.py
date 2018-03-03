@@ -1,4 +1,6 @@
 import pickle
+import numpy as np
+
 from argparse import ArgumentParser
 
 from bc_model import BCModel
@@ -50,6 +52,11 @@ def get_training_data(data_path):
     train_x = expert_data["observations"]
     train_y = expert_data["actions"]
 
+    # flatten y 
+    # [ [[y11, y12, y13, ...]], [[y21, y22, y23, ...]], ... ]
+    # [ [y11, y12, y13, ...], [y21, y22, y23, ...], ... ]
+    train_y = np.array([y[0] for y in train_y])
+
     return train_x, train_y
 
 
@@ -58,7 +65,9 @@ def main():
 
     train_x, train_y = get_training_data(args.expert)
 
-    bc_model = BCModel(n_hidden_layers=5, n_hidden_nodes=40, learning_rate=0.01)
+    bc_model = BCModel(n_hidden_layers=3, n_hidden_nodes=20, learning_rate=5e-4)
+
+    bc_model.train(train_x, train_y)
 
 
 if __name__ == '__main__':
