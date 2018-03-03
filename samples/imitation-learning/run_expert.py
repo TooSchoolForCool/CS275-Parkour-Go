@@ -23,7 +23,7 @@ def main():
     parser.add_argument('envname', type=str)
     parser.add_argument('--render', action='store_true')
     parser.add_argument("--max_timesteps", type=int)
-    parser.add_argument('--num_rollouts', type=int, default=1,
+    parser.add_argument('--num_rollouts', type=int, default=20,
                         help='Number of expert roll outs')
     args = parser.parse_args()
 
@@ -66,6 +66,9 @@ def main():
 
         expert_data = {'observations': np.array(observations),
                        'actions': np.array(actions)}
+
+        # dump running record data into a pickle file
+        pickle.dump(expert_data, open('./data/' + args.envname + '-data.pkl', "wb"))
 
 if __name__ == '__main__':
     main()
