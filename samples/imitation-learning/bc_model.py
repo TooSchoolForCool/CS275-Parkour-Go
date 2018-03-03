@@ -79,10 +79,11 @@ class BCModel(object):
         """Prediction Process
         
         Args:
-            observation: A single observation
+            observation: [np.ndarray] A list of training sample x (observation),
+                each x is a vector stored in the format of nd.ndarray
 
         Returns:
-            predicted_action: Predicted action output
+            predicted_action: [np.ndarray] A list of predicted actions
         """
         predicted_action = self._tf_sess.run(self._tf_y_out, 
             feed_dict={self._tf_x_in : observation})
@@ -90,28 +91,47 @@ class BCModel(object):
         return predicted_action
 
 
-    def _inference(self, layer_in, x_dimension, y_dimension):
+    def _inference(self, input_x, x_dimension, y_dimension):
         """Inference
 
         Building nueral network topology
+
+        Args:
+            input_x: input layer of neural network
+            x_dimension: input data dimension, i.e., dimension of each
+                data sample
+            y_dimension: output data dimension, i.e., dimension of each
+                output data sample
+
+        Returns:
+            output layer operator
         """
         assert(len(self._hidden_layers) > 0)
 
         # generate hidden layer
-        hidden_layer = layer_in
+        hidden_layer = input_x
         for i, n_nodes in enumerate(self._hidden_layers):
-            hidden_layer = self._add_layer(i, hidden_layer, n_nodes)
+            hidden_layer = self._add_layer(hidden_layer, n_nodes)
             # add activation function at each node
             hidden_layer = tf.nn.relu(hidden_layer)
 
         # generate output layer
-        output_layer = self._add_layer(len(self._hidden_layers), hidden_layer, y_dimension)
+        output_layer = self._add_layer(hidden_layer, y_dimension)
 
         return output_layer
 
 
-    def _add_layer(self, layer_cnt, layer_in, n_hidden_nodes):
+    def _add_layer(self, layer_in, n_hidden_nodes):
         """Add layer
+
+        Add a layer into neural network
+
+        Args:
+            layer_in: previous layer operator
+            n_hidden_nodes: [integer] number of nodes in current layer
+
+        Returns:
+            output layer operator without activation function
         """
         input_dimension = int(layer_in.shape[1])
 
@@ -128,6 +148,19 @@ class BCModel(object):
 
 
     def _shuffle_samples(self, n_samples, batch_size):
+        """Shuffle Dataset
+
+        Shuffle the training dataset by shuffling its indices
+
+        Args:
+            n_samples: number of samples, i.e., size of dataset
+            batch_size: batch size of training process
+
+        Returns:
+            A list of np.ndarrays. Each item, which is a 
+            np.ndarray whose size is batch_size, contains indices
+            of a batch of training samples
+        """
         shuffle_set = []
 
         dataset_idxs = np.arange(n_samples)

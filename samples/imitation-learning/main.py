@@ -80,7 +80,6 @@ def start_env(args, bc_model):
         while not done:
             observation = np.array([observation])
             action = bc_model.predict(observation)
-
             observation, reward, done, _ = env.step(action)
             total_rewards += reward
 
