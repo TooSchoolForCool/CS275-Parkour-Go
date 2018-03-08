@@ -5,10 +5,11 @@ TOTAL_EPISODES = 0
 
 class Agent(object):
 
-    def __init__(self, agent_id, env_id, learner):
+    def __init__(self, agent_id, env_id, learner, visualize=False):
         self._agent_id = agent_id
         self._env_id = env_id
         self._learner = learner
+        self._visualize = visualize
 
 
     def start_learning(self, max_episodes=10000, update_frequency=10):
@@ -26,6 +27,12 @@ class Agent(object):
                 action = self._learner.predict_action(observation)
 
                 next_observation, reward, done, _ = env.step(action)
+
+                if reward == -100:
+                    reward = -2
+                
+                if self._visualize and steps % 30 == 0:
+                    env.render()
 
                 observations.append(observation)
                 actions.append(action)
@@ -47,10 +54,10 @@ class Agent(object):
 
 
     def _print_episode_info(self, env, episodes, reward):
-        position = env.unwrapped.hull.position[0]
-        is_good = "good" if position >= 88 else "----"
-        print("[%s] | %s | Episode: %-7d | Reward: %-5.1f | Position: %d" 
-            % (self._agent_id, is_good, episodes, reward, position))
+        # position = env.unwrapped.hull.position[0]
+        is_good = "good" if reward >= 200 else "----"
+        print("[%s] | %s | Episode: %-7d | Reward: %-5.1f" 
+            % (self._agent_id, is_good, episodes, reward))
 
 
     def _update_learner(self, done, next_observation, observations, actions, rewards):

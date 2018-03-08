@@ -5,7 +5,7 @@ import gym
 
 class ActorCritic(object):
 
-    def __init__(self, scope, env, sess):
+    def __init__(self, env, sess):
         self._sess = sess
         
         self._obs_space_dim = env.observation_space.shape[0]
@@ -13,35 +13,12 @@ class ActorCritic(object):
         self._act_space_lower_bound = env.action_space.low
         self._act_space_upper_bound = env.action_space.high
 
-        with tf.variable_scope(scope):
-            self._obs_input = tf.placeholder(tf.float32, [None, self._obs_space_dim], name='obs_input')
-            
-            self._mu, self._sigma = self._actor_inference(self._obs_input, [500, 300])
-            self._val = self._critic_inference(self._obs_input, [500, 200])
+        self._entropy_beta = 0.005
+        self._actor_learning_rate = 0.00002
+        self._critic_learning_rate = 0.0001
 
-            self._actor_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
-                scope=scope + "/actor")
-            self._critic_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
-                scope=scope + "/critic")
-
-            self._gaussian_dist = tf.contrib.distributions.Normal(self._mu, self._sigma)
-
-            self._action_selector = tf.clip_by_value(tf.squeeze(self._gaussian_dist.sample(1), axis=0),
-                self._act_space_lower_bound, self._act_space_upper_bound)
-
-
-    def predict_action(self, observation):
-        observation = np.array([observation])
-        action = self._sess.run(self._action_selector, {self._obs_input : observation})[0]
-        
-        return action
-
-
-    def calc_value_func(self, observation):
-        observation = np.array([observation])
-        val = self._sess.run(self._val, {self._obs_input : observation})[0, 0]
-
-        return val
+        self._actor_hidden_layers = [500, 300, 200]
+        self._critic_hidden_layers = [500, 300, 200]
 
 
     def _actor_inference(self, layer_in, hidden_layers, activation_func=tf.nn.relu6):
@@ -84,28 +61,55 @@ class ActorCritic(object):
 class ActorCriticMaster(ActorCritic):
 
     def __init__(self, scope, env, sess):
-        ActorCritic.__init__(self, scope, env, sess)
+        ActorCritic.__init__(self, env, sess)
+
+        with tf.variable_scope(scope):
+            self._obs_input = tf.placeholder(tf.float32, [None, self._obs_space_dim], name='obs_input')
+            
+            self._mu, self._sigma = self._actor_inference(self._obs_input, self._actor_hidden_layers)
+            self._val = self._critic_inference(self._obs_input, self._critic_hidden_layers)
+
+            self._actor_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
+                scope=scope + "/actor")
+            self._critic_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
+                scope=scope + "/critic")
+
+            self._actor_optimizer = tf.train.RMSPropOptimizer(self._actor_learning_rate)
+            self._critic_optimizer = tf.train.RMSPropOptimizer(self._critic_learning_rate)
+
         print("Init ActorCriticMaster", scope)
 
 
 class ActorCriticSlave(ActorCritic):
 
     def __init__(self, scope, env, sess, master_ac):
-        ActorCritic.__init__(self, scope, env, sess)
-        self._init_learning_params()
+        ActorCritic.__init__(self, env, sess)
 
         with tf.variable_scope(scope):
+            self._obs_input = tf.placeholder(tf.float32, [None, self._obs_space_dim], name='obs_input')
             self._actions = tf.placeholder(tf.float32, [None, self._act_space_dim], name="actions")
             self._target_vals = tf.placeholder(tf.float32, [None, 1], name="target_val")
+
+            self._mu, self._sigma = self._actor_inference(self._obs_input, self._actor_hidden_layers)
+            self._val = self._critic_inference(self._obs_input, self._critic_hidden_layers)
+
+            self._actor_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
+                scope=scope + "/actor")
+            self._critic_params = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
+                scope=scope + "/critic")
+
+            self._gaussian_dist = tf.contrib.distributions.Normal(self._mu, self._sigma)
+
+            with tf.name_scope("action_control"):
+                self._action_selector = tf.clip_by_value(tf.squeeze(self._gaussian_dist.sample(1), axis=0),
+                    self._act_space_lower_bound, self._act_space_upper_bound)
 
             actor_loss, critic_loss = self._loss_function(self._mu, self._sigma, self._val, 
                 self._target_vals, self._actions)
 
-            actor_gradients = tf.gradients(actor_loss, self._actor_params)
-            critic_gradients = tf.gradients(critic_loss, self._critic_params)
-
-        actor_optimizer = tf.train.RMSPropOptimizer(self._actor_learning_rate)
-        critic_optimizer = tf.train.RMSPropOptimizer(self._critic_learning_rate)
+            with tf.name_scope("local_gradients"):
+                actor_gradients = tf.gradients(actor_loss, self._actor_params)
+                critic_gradients = tf.gradients(critic_loss, self._critic_params)
 
         with tf.name_scope("sync"):
             with tf.name_scope("pull"):
@@ -114,12 +118,26 @@ class ActorCriticSlave(ActorCritic):
                 self._pull_critic_params_op = [lp.assign(gp) for lp, gp in 
                     zip(self._critic_params, master_ac._critic_params)]
             with tf.name_scope("push"):
-                self._update_actor_master_op = actor_optimizer.apply_gradients(
+                self._update_actor_master_op = master_ac._actor_optimizer.apply_gradients(
                     zip(actor_gradients, master_ac._actor_params))
-                self._update_critic_master_op = critic_optimizer.apply_gradients(
+                self._update_critic_master_op = master_ac._critic_optimizer.apply_gradients(
                     zip(critic_gradients, master_ac._critic_params))
 
         print("Init ActorCriticSlave", scope)
+
+
+    def predict_action(self, observation):
+        observation = observation[np.newaxis, :]
+        action = self._sess.run(self._action_selector, {self._obs_input : observation})[0]
+        
+        return action
+
+
+    def calc_value_func(self, observation):
+        observation = observation[np.newaxis, :]
+        val = self._sess.run(self._val, {self._obs_input : observation})[0, 0]
+
+        return val
 
 
     def update_master(self, observations, actions, target_vals):
@@ -138,7 +156,7 @@ class ActorCriticSlave(ActorCritic):
 
 
     def _loss_function(self, mu, sigma, val, target_val, actions):
-        error = tf.subtract(target_val, val)
+        error = tf.subtract(target_val, val, name="error")
 
         with tf.name_scope("actor_loss"):
             # mu *= self._act_space_upper_bound
@@ -153,13 +171,7 @@ class ActorCriticSlave(ActorCritic):
             critic_loss = tf.reduce_mean(tf.square(error))
 
         return actor_loss, critic_loss
-
-
-    def _init_learning_params(self):
-        self._entropy_beta = 0.005
-        self._actor_learning_rate = 0.00002
-        self._critic_learning_rate = 0.0001
-
+        
 
 def main():
     env = gym.make("BipedalWalker-v2")

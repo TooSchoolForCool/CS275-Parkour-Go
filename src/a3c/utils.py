@@ -56,18 +56,23 @@ def arg_parser():
     return args
 
 
-def create_agents(env_id, sess):
+def create_agents(env_id, sess, n_agents=1):
     env = gym.make(env_id)
     master = ActorCriticMaster("master", env, sess)
     
     agents, slaves = [], []
-    for i in range(multiprocessing.cpu_count()):
+    for i in range(n_agents):
         agent_id = "agent_" + str(i)
         slave_id = "slave_" + str(i)
 
         slave = ActorCriticSlave(slave_id, env, sess, master)
         slaves.append(slave)
-        agents.append( Agent(agent_id, env_id, slave) )
+
+        if i == 0:
+            agent = Agent(agent_id, env_id, slave, visualize=True)
+        else:
+            agent = Agent(agent_id, env_id, slave, visualize=False)
+        agents.append(agent)
 
     env.close()
     return agents, master, slaves

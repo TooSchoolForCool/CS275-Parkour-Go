@@ -13,18 +13,21 @@ from utils import create_agents
 def train(args):
     sess = tf.Session()
     coord = tf.train.Coordinator()
-    agents, master, slaves = create_agents(args.env, sess)
+    agents, master, slaves = create_agents(args.env, sess, 4)
 
     sess.run(tf.global_variables_initializer())
 
     agents_threads = []
     for agent in agents:
-        cb = lambda : agent.start_learning(max_episodes=100, update_frequency=10)
+        cb = lambda : agent.start_learning(max_episodes=100000, update_frequency=10)
         thread = threading.Thread(target=cb)
         thread.start()
         agents_threads.append(thread)
 
     coord.join(agents_threads)
+
+    writer = tf.summary.FileWriter("./models/tf_event", sess.graph)
+    writer.close()
 
     sess.close()
 
