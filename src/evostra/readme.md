@@ -13,9 +13,9 @@
 - Play:
     > $ python3 play.py -e [episodes] -l [load_model_file] -e
 - Examples:
-    > $ python 3 train.py -i 400 -s weights_i400.pkl
+    > $ python3 train.py -i 400 -s weights_i400.pkl
 
-    > $ python 3 play.py -e 1 -l weights_0.pkl
+    > $ python3 play.py -e 1 -l weights_0.pkl
     
     (weights_0.pkl contains a well-trained model with good performance for BipedalWalker-v2)
 
