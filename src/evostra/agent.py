@@ -33,6 +33,11 @@ class Agent:
         """Initialize the agent."""
         # Initialize the openai-gym environment.
         self.env = gym.make(self.ENV_ID)
+        
+        # uncomment following lines if you want to record the video
+        # self.env = gym.wrappers.Monitor(self.env, "{}_monitor".format(self.ENV_ID),
+        #     lambda episode_id: True, force=True)
+
         # Initialze the training model.
         self.model = Model()
         # Initialize the evolution strategy of evostra
