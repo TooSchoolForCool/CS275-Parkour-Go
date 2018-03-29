@@ -30,6 +30,7 @@ Before running our code, several dependent packages have to be installed. Below 
 - gym
 - torch
 - box2d-py
+- evostra
 - glfw
 - h5py
 - numpy

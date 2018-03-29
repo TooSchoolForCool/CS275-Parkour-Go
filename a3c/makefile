@@ -1,4 +1,4 @@
-PHONY: run
+PHONY: train demo-simple demo-hardcore
 
 train:
 	python3 ./src/main.py --mode=train --env="BipedalWalker-v2" --n_workers=4 \
