@@ -39,7 +39,7 @@ requests==2.18.4
 scipy==1.0.0
 setproctitle==1.1.10
 six==1.11.0
-tensorflow==1.5.0
+tensorflow==1.15.0
 tensorflow-tensorboard==1.5.1
 -e git+git@github.com:reinforceio/tensorforce.git@1109dc5df81e2ddeffd83b9843d50710a014d433#egg=tensorforce
 torch==0.3.1
