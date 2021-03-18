@@ -22,7 +22,7 @@ Markdown==2.6.11
 matplotlib==2.1.2
 mujoco-py==1.50.1.41
 numpy==1.14.1
-Pillow==5.0.0
+Pillow==8.1.1
 pluggy==0.6.0
 protobuf==3.5.1
 py==1.5.2
